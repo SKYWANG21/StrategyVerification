@@ -1,6 +1,14 @@
 """
 MA20趋势跟踪策略 - 信号生成模块
-根据MA20和K线颜色生成交易信号
+
+【面向初学者】
+本模块根据“价格 vs MA20”和“K 线颜色”产生交易信号：
+- 做多信号(1)：收盘价 > MA20 且 当前 K 线收阳（Close > Open）
+- 做空信号(-1)：收盘价 < MA20 且 当前 K 线收阴（Close < Open）
+- 观望(0/None)：其余情况
+
+可选功能：按 K 线实体比例、成交量等过滤弱信号；单根 K 线信号查询（用于实盘）；
+信号统计与分布图。
 """
 
 import pandas as pd
@@ -10,12 +18,11 @@ from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
-# 设置日志
 logger = logging.getLogger(__name__)
 
 
 class SignalType(Enum):
-    """信号类型枚举"""
+    """信号类型枚举：BUY=做多，SELL=做空，HOLD=持仓观望，WAIT=空仓观望。"""
     BUY = 1      # 做多信号
     SELL = -1    # 做空信号
     HOLD = 0     # 持仓观望
@@ -24,7 +31,7 @@ class SignalType(Enum):
 
 @dataclass
 class TradingSignal:
-    """交易信号数据结构"""
+    """单笔交易信号的数据结构：类型、价格、日期、MA 值、置信度、原因说明。"""
     signal_type: SignalType
     price: float
     date: pd.Timestamp
@@ -34,30 +41,20 @@ class TradingSignal:
 
 
 class SignalGenerator:
-    """信号生成器 - 基于MA20和K线颜色生成交易信号"""
-    
+    """
+    信号生成器：在包含 close、open、ma{period} 的 DataFrame 上，
+    按策略规则为每一行生成 signal（1/-1/0）、signal_reason、signal_confidence。
+    """
+
     def __init__(self, ma_period: int = 20):
-        """初始化信号生成器
-        
-        Args:
-            ma_period: MA周期，默认20
-        """
         self.ma_period = ma_period
         self.ma_col = f'ma{ma_period}'
-    
+
     def generate_signals(self, df: pd.DataFrame) -> pd.DataFrame:
-        """生成交易信号
-        
-        信号规则：
-        1. 做多信号：收盘价 > MA20 且 当前K线收阳（Close > Open）
-        2. 做空信号：收盘价 < MA20 且 当前K线收阴（Close < Open）
-        3. 其他情况：空仓观望
-        
-        Args:
-            df: 包含价格和MA数据的DataFrame
-            
-        Returns:
-            添加了信号列的DataFrame
+        """
+        批量生成交易信号。
+        做多：above_ma & is_red；做空：below_ma & is_green。
+        在传入的 df 副本上新增 signal、signal_reason、signal_confidence 列并返回。
         """
         logger.info(f"开始生成交易信号，MA周期: {self.ma_period}")
         

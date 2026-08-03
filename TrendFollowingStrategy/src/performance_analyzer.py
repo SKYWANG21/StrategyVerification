@@ -1,6 +1,13 @@
 """
-MA20趋势跟踪策略 - 绩效分析和可视化模块
-实现回测结果的详细分析和图表生成
+MA20趋势跟踪策略 - 绩效分析与可视化模块
+
+【面向初学者】
+本模块包含两类功能：
+1. PerformanceAnalyzer：根据交易记录 DataFrame 和权益曲线 Series 计算
+   胜率、盈亏比、最大回撤、夏普/索提诺/卡玛比率、连续盈亏、月度收益等，
+   并可生成绩效报告文本。
+2. PerformanceVisualizer：绘制权益曲线、回撤图、交易分布（盈亏直方图、持仓时间等）、
+   月度表现热力图。依赖 matplotlib/seaborn，若未安装则绘图会跳过。
 """
 
 import pandas as pd
@@ -11,7 +18,6 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
-# 设置日志
 logger = logging.getLogger(__name__)
 
 try:
@@ -37,7 +43,10 @@ except ImportError:
 
 
 class PerformanceAnalyzer:
-    """绩效分析器"""
+    """
+    绩效分析器：根据 trades_df（需含 pnl、holding_days、exit_date 等）和 equity_curve
+    计算交易统计、盈亏统计、连续盈亏、回撤、年化收益与夏普等，并可生成绩效报告字符串。
+    """
     
     def __init__(self):
         """初始化绩效分析器"""
@@ -356,7 +365,10 @@ class PerformanceAnalyzer:
 
 
 class PerformanceVisualizer:
-    """绩效可视化器"""
+    """
+    绩效可视化器：绘制权益曲线、回撤图、交易分布（盈亏直方图/序列/持仓时间）、月度热力图。
+    若 matplotlib 不可用则仅打日志不绘图。
+    """
     
     def __init__(self):
         """初始化可视化器"""

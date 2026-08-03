@@ -1,0 +1,25 @@
+# 数据源配置
+# token 等敏感信息用 ${ENV_VAR} 占位，加载时从环境变量取值
+
+default: akshare
+
+sources:
+  akshare:
+    enabled: true
+    # 各市场使用的 AKShare 接口，便于替换而无需改代码
+    interfaces:
+      cn_stock: stock_zh_a_hist
+      us_stock: stock_us_hist # symbol 需带东财前缀，如 105.AAPL
+      crypto: crypto_hist
+      futures: futures_zh_daily_sina
+    adjust: qfq # A股/美股复权方式：qfq 前复权 / hfq 后复权 / "" 不复权
+
+  tushare:
+    enabled: true
+    token: ${TUSHARE_TOKEN}
+    # 期货主连在 Tushare 需带交易所后缀，按顺序尝试
+    futures_exchanges:
+      - SHF
+      - DCE
+      - CZCE
+      - CFFEX

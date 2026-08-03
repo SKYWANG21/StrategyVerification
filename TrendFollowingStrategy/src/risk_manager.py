@@ -1,6 +1,13 @@
 """
 MA20趋势跟踪策略 - 风险管理模块
-实现动态止损计算、仓位管理等功能
+
+【面向初学者】
+本模块负责两件事：
+1. 止损计算：做多时以前一根 K 线最低价为“基础止损”，若距离超过 max_loss_pct(6%) 则改用
+   entry_price * (1 - force_stop_pct)(3%) 的强制止损；做空对称（前高、+3%）。
+2. 仓位计算：根据“每笔风险占资金 2%”和“最大仓位 80%”计算可开手数；以及移动止损（浮盈后提到保本）。
+
+与 config 中的 max_loss_pct、force_stop_pct、risk_per_trade、max_position_pct 对应。
 """
 
 import pandas as pd
@@ -10,12 +17,11 @@ from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
-# 设置日志
 logger = logging.getLogger(__name__)
 
 
 class PositionSide(Enum):
-    """持仓方向"""
+    """持仓方向：LONG=多，SHORT=空，NONE=无持仓。"""
     LONG = 1     # 做多
     SHORT = -1   # 做空
     NONE = 0     # 无持仓
@@ -23,17 +29,17 @@ class PositionSide(Enum):
 
 @dataclass
 class RiskParameters:
-    """风险参数"""
-    max_loss_pct: float = 0.06      # 最大止损容忍度6%
-    force_stop_pct: float = 0.03    # 强制止损3%
-    risk_per_trade: float = 0.02    # 每笔交易风险2%
-    max_position_pct: float = 0.8   # 最大仓位80%
-    min_position_size: int = 1      # 最小仓位1手
+    """风险参数：与 config 对应，可在构造 RiskManager 时传入覆盖默认值。"""
+    max_loss_pct: float = 0.06      # 最大止损容忍度 6%
+    force_stop_pct: float = 0.03    # 强制止损 3%
+    risk_per_trade: float = 0.02   # 每笔风险 2%
+    max_position_pct: float = 0.8   # 最大仓位 80%
+    min_position_size: int = 1      # 最小 1 手
 
 
 @dataclass
 class StopLossResult:
-    """止损计算结果"""
+    """止损计算结果：止损价、止损距离比例、每手风险金额、是否强制止损、计算原因。"""
     stop_price: float
     stop_distance_pct: float
     risk_amount: float
@@ -43,7 +49,7 @@ class StopLossResult:
 
 @dataclass
 class PositionSizeResult:
-    """仓位大小计算结果"""
+    """仓位计算结果：手数、所需保证金、风险金额、风险占资金比例、计算原因。"""
     position_size: int
     required_margin: float
     risk_amount: float
@@ -52,37 +58,20 @@ class PositionSizeResult:
 
 
 class RiskManager:
-    """风险管理员 - 负责止损计算和仓位管理"""
-    
+    """
+    风险管理器：根据进场价、前一根 K 线极值、方向计算止损价；
+    根据资金、进场价、止损价、保证金比例、合约乘数计算建议手数。
+    """
+
     def __init__(self, parameters: Optional[RiskParameters] = None):
-        """初始化风险管理器
-        
-        Args:
-            parameters: 风险参数，如果为None使用默认参数
-        """
         self.parameters = parameters or RiskParameters()
-    
+
     def calculate_stop_loss(self, entry_price: float, prev_extreme: float, 
                           direction: PositionSide, **kwargs) -> StopLossResult:
-        """计算止损价格
-        
-        止损规则：
-        做多时：
-        - 基础止损 = 前一根K线的最低价
-        - 止损距离 = (进场价 - 基础止损) / 进场价
-        - 如果止损距离 > 6%: 实际止损 = 进场价 × (1 - 3%)
-        - 否则: 实际止损 = 基础止损
-        
-        做空时：同理，使用前一根K线的最高价
-        
-        Args:
-            entry_price: 进场价格
-            prev_extreme: 前一根K线的极值（做多用最低价，做空用最高价）
-            direction: 持仓方向
-            **kwargs: 其他参数
-            
-        Returns:
-            止损计算结果
+        """
+        计算止损价。
+        做多：base_stop = prev_extreme(前低)，若 (entry - base) / entry > 6% 则用 entry*(1-3%)。
+        做空：base_stop = prev_extreme(前高)，若 (base - entry) / entry > 6% 则用 entry*(1+3%)。
         """
         logger.info(f"计算{'做多' if direction == PositionSide.LONG else '做空'}止损价格...")
         

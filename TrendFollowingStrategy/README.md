@@ -1,6 +1,25 @@
 # MA20趋势跟踪策略
 
-一个基于Python的期货趋势跟踪量化交易策略，使用20周期简单移动平均线(MA20)作为主要技术指标，支持回测和实盘模拟。
+> **本项目已废弃（deprecated），仅作历史参考。** 策略逻辑已迁移到新框架 [myquant](../myquant)，
+> 请改用 `python myquant/run.py --mode backtest --strategy ma20_trend --symbol RB0 --market futures --resample 2D`。
+>
+> 迁移映射：
+>
+> | 旧文件 | 新位置 |
+> | --- | --- |
+> | `config.py` | `myquant/config/settings.yaml` + `data_sources.yaml` |
+> | `src/data_fetcher.py` | `myquant/data/akshare_feed.py`、`tushare_feed.py` |
+> | `src/data_processor.py` | `myquant/data/cleaner.py`（重采样/清洗）+ `strategies/ma20_trend/signals.py`（MA 与 K 线特征） |
+> | `src/signal_generator.py` | `myquant/strategies/ma20_trend/signals.py` |
+> | `src/risk_manager.py` | `myquant/strategies/ma20_trend/risk.py`（止损）+ `strategies/base_strategy.py`（仓位） |
+> | `src/backtest_engine.py` | `myquant/strategies/ma20_trend/strategy.py` + `myquant/backtest/engine.py` |
+> | `src/performance_analyzer.py`、`src/visualization.py` | `myquant/backtest/analyzer.py`、`visualizer.py` |
+> | `scripts/main_simple.py`（手写回测循环，已弃用） | `myquant/run.py --mode backtest`（统一走 Backtrader） |
+> | `scripts/multibacktest.py` | `myquant/run.py --mode compare` |
+
+一个基于 Python 的期货趋势跟踪量化交易策略，使用 20 周期简单移动平均线(MA20) 作为主要技术指标，支持回测和实盘模拟。
+
+**面向 Python 初学者**：可先阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解项目架构、数据流与各模块职责，再结合代码内注释学习。
 
 ## 策略概述
 
@@ -60,14 +79,17 @@ pip install -r requirements.txt
 ### 数据源配置
 
 #### Tushare
+
 1. 注册Tushare账号：https://tushare.pro/register
 2. 获取API Token
 3. 设置环境变量：
+
 ```bash
 export TUSHARE_TOKEN="your_token_here"
 ```
 
 #### Akshare（推荐）
+
 无需额外配置，可直接使用
 
 ## 快速开始
@@ -99,7 +121,7 @@ python TrendFollowingStrategy/tests/test_simple.py
 
 ### 3. 多品种回测
 
-```bash
+````bash
 # 运行多品种对比回测
 python scripts/multibacktest.py
 
@@ -123,7 +145,8 @@ df = generator.generate_signals(processor.calculate_ma(df, 20))
 engine = BacktestEngine('RB0')
 results = engine.run_backtest(df, initial_capital=100000)
 engine.print_backtest_report(results)
-```
+````
+
 ```
 
 ## 参数说明
@@ -131,25 +154,27 @@ engine.print_backtest_report(results)
 ### 命令行参数
 
 ```
+
 --symbol: 交易品种代码 (默认: RB0)
-  可选值: RB0(螺纹钢), CU0(铜), IF0(沪深300)
+可选值: RB0(螺纹钢), CU0(铜), IF0(沪深300)
 
 --data-source: 数据源 (默认: akshare)
-  可选值: tushare, akshare
+可选值: tushare, akshare
 
 --start-date: 开始日期 (默认: 2024-01-01)
-  格式: YYYY-MM-DD
+格式: YYYY-MM-DD
 
 --end-date: 结束日期 (默认: 2025-12-31)
-  格式: YYYY-MM-DD
+格式: YYYY-MM-DD
 
 --initial-capital: 初始资金 (默认: 100000)
-  单位: CNY
+单位: CNY
 
 --no-save: 不保存结果文件
 
 --test: 运行测试模式
-```
+
+````
 
 ### 策略参数配置
 
@@ -170,7 +195,7 @@ risk_per_trade = 0.02  # 2%
 
 # 最大仓位比例
 max_position_pct = 0.8  # 80%
-```
+````
 
 ### 品种配置
 
@@ -240,7 +265,7 @@ instruments = {
 
 运行策略后会生成以下文件：
 
-```
+````
 results/
 ├── backtest_report_<SYMBOL>_YYYYMMDD_HHMMSS.txt     # 回测报告
 ├── trades_<SYMBOL>_YYYYMMDD_HHMMSS.csv              # 交易明细
@@ -256,7 +281,7 @@ results/
 
 ```bash
 python -c "from src.visualization import create_visualization_from_backtest_results; create_visualization_from_backtest_results()"
-```
+````
 
 或在运行 `scripts/main_simple.py` 后自动生成图表，再用浏览器打开 `results/charts_viewer.html`。
 
@@ -267,7 +292,8 @@ python TrendFollowingStrategy/scripts/simple_backtest.py
 ```
 
 该脚本用于纯Python逻辑验证策略的进出场规则、止损、仓位与绩效计算，适合快速自测。
-```
+
+````
 
 ## 策略逻辑验证
 
@@ -361,7 +387,7 @@ python TrendFollowingStrategy/scripts/simple_backtest.py
     'contract_multiplier': 10,
     'slippage': 0.001,
 }
-```
+````
 
 ### 自定义指标
 
@@ -390,15 +416,19 @@ def add_volume_filter(self, df, min_volume_ratio=1.5):
 ## 常见问题
 
 ### Q: 策略在震荡市表现如何？
+
 A: 趋势跟踪策略在震荡市通常会经历连续小额亏损，这是策略的正常特征。建议添加震荡过滤器或降低仓位。
 
 ### Q: 如何优化参数？
+
 A: 使用敏感性分析功能测试不同参数组合，但要注意避免过拟合。建议留出样本外数据验证。
 
 ### Q: 实盘滑点如何处理？
+
 A: 回测中已经考虑了0.1%的滑点，实盘中可能需要根据实际成交情况调整。建议使用限价单减少滑点影响。
 
 ### Q: 策略适合什么市场环境？
+
 A: 策略最适合趋势明显的市场环境，在震荡市中表现较差。建议结合市场状态指标动态调整策略参数。
 
 ## 技术支持
@@ -418,6 +448,7 @@ A: 策略最适合趋势明显的市场环境，在震荡市中表现较差。�
 ## 更新日志
 
 ### v1.0.0 (2024-12-31)
+
 - ✨ 初始版本发布
 - ✅ 完整的MA20趋势跟踪策略实现
 - ✅ 支持多品种回测
@@ -442,4 +473,4 @@ MIT License - 详见 [LICENSE](../LICENSE) 文件
 
 **Happy Trading! 🚀**
 
-*愿趋势与你同在*
+_愿趋势与你同在_

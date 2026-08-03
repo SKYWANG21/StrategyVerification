@@ -3,7 +3,7 @@ __pycache__/
 
 # 环境、IDE
 .git/
-.env
+.venv
 .trae/
 # 数据缓存目录
 data/cache/
@@ -12,5 +12,10 @@ data/cache/
 TrendFollowingStrategy/__pycache__/
 TrendFollowingStrategy/scripts/__pycache__/
 TrendFollowingStrategy/src/__pycache__/
+
+# myquant 运行产物
+myquant/results/
+myquant/logs/
+myquant/.cache/
 
 

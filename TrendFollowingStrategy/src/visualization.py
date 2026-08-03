@@ -1,6 +1,18 @@
 """
-MA20趋势跟踪策略 - 可视化工具
-完善PNG图输出并生成HTML仪表盘
+MA20趋势跟踪策略 - 综合可视化工具
+
+【面向初学者】
+本模块在回测完成后生成多张 PNG 图并汇总为 HTML 仪表盘：
+- 权益曲线与回撤
+- 价格走势与交易信号（买卖点标记）
+- 交易分布（盈亏直方图、时间序列、箱线图、日交易频率）
+- 月度表现热力图
+- 回撤分析（时间序列、分布、恢复时间等）
+- 交易时机分析（按小时、星期、持仓时间等）
+
+StrategyVisualizer.create_comprehensive_report() 会依次生成上述图并写入 results 目录，
+最后生成 charts_viewer.html。create_visualization_from_backtest_results() 可从最新
+trades_*.csv 自动加载数据并生成报告。
 """
 
 import pandas as pd
@@ -21,6 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 class StrategyVisualizer:
+    """
+    策略可视化器：接收行情 data、交易记录 trades、回测摘要 backtest_results，
+    生成权益曲线、价格+信号、交易分布、月度热力、回撤分析、交易时机等多张图，
+    并可选生成 HTML 仪表盘。
+    """
     def __init__(self, figsize=(15, 10)):
         self.figsize = figsize
         self.colors = {

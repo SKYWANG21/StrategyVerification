@@ -1,6 +1,13 @@
 """
-MA20趋势跟踪策略 - Backtrader回测引擎（最终版）
-基于最终修复版本，统一命名为 BacktestEngine / MA20Strategy
+MA20趋势跟踪策略 - Backtrader 回测引擎
+
+【面向初学者】
+本模块使用 Backtrader 框架做“逐 K 线”回测：
+- MA20Strategy：在 next() 里根据当前 close、open、MA20 判断开多/开空，并用 RiskManager 算止损与手数；
+  有持仓时检查移动止损（浮盈提到保本）和 K 线反转平仓。
+- BacktestEngine：准备 PandasData、设置 Cerebro（资金、手续费、滑点）、运行策略并汇总 returns/sharpe/drawdown/trades 等结果。
+
+若不想依赖 Backtrader，可使用 scripts/main_simple.py 中的简化回测逻辑。
 """
 
 import backtrader as bt
@@ -16,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class MA20Strategy(bt.Strategy):
+    """
+    Backtrader 策略类：每个 next() 调用对应一根 2 日 K 线。
+    无仓时根据 收盘>MA20 且 收阳 开多，收盘<MA20 且 收阴 开空；
+    有仓时浮盈则移动止损到成本价，K 线颜色反转则平仓。
+    """
     params = (
         ('ma_period', 20),
         ('max_loss_pct', 0.06),
@@ -39,11 +51,11 @@ class MA20Strategy(bt.Strategy):
         self.stop_price = None
         self.position_size = None
         self.position_side = PositionSide.NONE
-        self.prev_extreme = None
+        self.prev_extreme = None   # 前一根 K 的 high/low，用于算止损
         self.extreme_price = None
         self.trades = []
         self.signals = []
-        self.stop_moved_to_breakeven = False
+        self.stop_moved_to_breakeven = False  # 是否已把止损移到成本价
         logger.info(f"MA20策略初始化完成，周期: {self.p.ma_period}")
 
     def next(self):
@@ -164,6 +176,10 @@ class MA20Strategy(bt.Strategy):
 
 
 class BacktestEngine:
+    """
+    回测引擎：根据品种从 config 读取手续费、保证金等，将 DataFrame 转为 Backtrader 数据源，
+    注册 MA20Strategy 与各类 Analyzer，执行 run 并整理成字典结果，支持打印报告。
+    """
     def __init__(self, symbol: str = 'RB0'):
         self.symbol = symbol
         self.config = get_config()
@@ -214,11 +230,13 @@ class BacktestEngine:
         self.cerebro.addanalyzer(bt.analyzers.SQN, _name='sqn')
 
     def run_backtest(self, df: pd.DataFrame, initial_capital: float = 100000) -> Dict[str, Any]:
+        """准备 Cerebro、注入数据与策略、运行并返回汇总结果（资金、收益、回撤、胜率等）。"""
         self.setup_cerebro(df, initial_capital)
         self.results = self.cerebro.run()
         return self._extract_results()
 
     def _extract_results(self) -> Dict[str, Any]:
+        """从 Backtrader 运行结果中提取 basic_info、return_metrics、risk_metrics、trade_metrics、strategy_data。"""
         if not self.results:
             return {}
         strat = self.results[0]

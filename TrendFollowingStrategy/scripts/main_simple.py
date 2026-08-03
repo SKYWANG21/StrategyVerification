@@ -1,6 +1,20 @@
 """
-MA20趋势跟踪策略 - 简化主程序
-使用验证过的简化回测引擎
+MA20趋势跟踪策略 - 简化主程序（推荐入口）
+
+【面向初学者】
+本脚本是“一键运行”入口：从拉数据到回测、报告、保存结果与图表。
+流程简述：
+1. 解析命令行参数（品种、数据源、起止日期、初始资金等）
+2. 使用 DataFetcher 拉取日 K 线（失败则用 create_test_data 生成模拟数据）
+3. DataProcessor 合成 2 日 K 线并 prepare_strategy_data（MA + 特征）
+4. SignalGenerator 生成信号
+5. simple_backtest() 做简化回测（逐行判断开平仓、手续费、滑点）
+6. generate_performance_report() 生成文本报告
+7. _save_complete_results() 保存报告、trades CSV，并尝试调用 simple_visualization 画图
+
+运行示例：
+  python scripts/main_simple.py --symbol RB0 --start-date 2024-01-01 --end-date 2025-12-31
+  python scripts/main_simple.py --test   # 运行 simple_test 做功能自测
 """
 
 import os
@@ -23,7 +37,6 @@ from src.risk_manager import RiskManager, PositionSide
 from src.performance_analyzer import PerformanceAnalyzer
 from config import get_config, validate_config, get_instrument_config, get_paths
 
-# 设置日志
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -32,7 +45,10 @@ logger = logging.getLogger(__name__)
 
 
 class MA20TrendFollowingStrategySimple:
-    """MA20趋势跟踪策略简化版"""
+    """
+    MA20 趋势跟踪策略简化版：串联数据获取 → 2日K线+MA+特征 → 信号 → 简化回测 → 报告与保存。
+    不依赖 Backtrader，适合快速验证与学习。
+    """
     
     def __init__(self, symbol: str = 'RB0', data_source: str = 'akshare'):
         """初始化策略
@@ -535,7 +551,10 @@ class MA20TrendFollowingStrategySimple:
 
 
 def main():
-    """主函数"""
+    """
+    主函数：解析命令行参数，校验 config；若 --test 则跑 simple_test，否则创建策略实例、
+    运行 run_complete_strategy 并打印绩效报告。
+    """
     parser = argparse.ArgumentParser(description='MA20趋势跟踪策略（简化版）')
     parser.add_argument('--symbol', type=str, default='RB0', 
                        help='交易品种代码 (默认: RB0)')
